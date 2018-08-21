@@ -1,0 +1,423 @@
+------------inside running container ------------------
+
+docker container run --publish 80:80 --detach --name webhost nginx
+
+docker container run --publish 3306:3306 --detach --name con_mysql --env MYSQL_RANDOM_ROOT_PASSWORD=yes mysql
+
+docker container logs con_mysql
+
+fuShaiHohsh8hah0iegh0Do0neeToquo
+
+# top command -> this command will list the process inside a container
+
+docker container top con_mysql 
+
+docker container top webhost
+
+# inspect -> this command will give all the data how the container is started.
+
+docker container inspect con_mysql 
+
+docker container inspect webhost
+
+# stats -> this command will give a streaming of the live performance data like cpu usage memory usage, etc.
+
+docker container stats
+
+it will return only container ID not the name
+
+we can monitor the contaniers resource usage
+
+
+------------- getting into a container and use the commands related to the image of the particular container---------------------
+
+
+#get the shell inside the container
+
+docker container run -it --name proxy nginx bash
+
+all the images can take their own commands while starting, which will override the default property of the image if specified
+in this case we have specified bash command to the nginx image to run shell container  
+
+[slayerm@localhost ~]$ docker container run -it --name proxy nginx bash
+root@5fb7553a2b01:/# ls
+bin  boot  dev	etc  home  lib	lib64  media  mnt  opt	proc  root  run  sbin  srv  sys  tmp  usr  var
+root@5fb7553a2b01:/# exit
+
+to exit the bash
+
+once we exit the bash the container will stop coz it is temp container.
+
+# try centos os in container
+
+docker container run -it --name centos centos
+
+like the real centos machine docker will run the centos inside the container(just a minimal version od centos).
+we can actually do all the things that we do with the centos machine like yum udate
+
+[slayerm@localhost ~]$ docker container run -it --name centos centos
+Unable to find image 'centos:latest' locally
+latest: Pulling from library/centos
+256b176beaff: Pull complete 
+Digest: sha256:6f6d986d425aeabdc3a02cb61c02abb2e78e57357e92417d6d58332856024faf
+Status: Downloaded newer image for centos:latest
+[root@9ca54f71b402 /]# yum update
+
+# to start the stopped container
+docker container start -ai centos
+
+[slayerm@localhost ~]$ docker container start -ai centos
+[root@9ca54f71b402 /]# curl google.com
+<HTML><HEAD><meta http-equiv="content-type" content="text/html;charset=utf-8">
+<TITLE>301 Moved</TITLE></HEAD><BODY>
+<H1>301 Moved</H1>
+The document has moved
+<A HREF="http://www.google.com/">here</A>.
+</BODY></HTML>
+[root@9ca54f71b402 /]# 
+
+------------- to see the shell of an already running container ------------------------------------------------------
+
+# exec command
+docker contianer exec -it con_mysql bash 
+
+it will open bash to access the running container.
+we can use this option in case if we wanna update any config of the running contianer without stopping the container.
+
+[slayerm@localhost ~]$ docker container exec -it con_mysql bash
+root@22a704f737dc:/# mysql -h0.0.0.0 -P 3306 -uroot -p
+Enter password: 
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 8
+Server version: 8.0.12 MySQL Community Server - GPL
+
+Copyright (c) 2000, 2018, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql>
+
+# we can use alpine image if we want very minimal linux distribution 
+
+#other way of getting image 
+docker pull alpine
+
+by default alpine dose not have bash only has sh shell
+but we can install the bash package from sh shell
+
+docker container run -it alpine sh
+
+[slayerm@localhost ~]$ docker container run -it alpine sh
+/ # apk add bash
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.8/main/x86_64/APKINDEX.tar.gz
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.8/community/x86_64/APKINDEX.tar.gz
+(1/5) Installing ncurses-terminfo-base (6.1_p20180818-r0)
+(2/5) Installing ncurses-terminfo (6.1_p20180818-r0)
+(3/5) Installing ncurses-libs (6.1_p20180818-r0)
+(4/5) Installing readline (7.0.003-r0)
+(5/5) Installing bash (4.4.19-r1)
+Executing bash-4.4.19-r1.post-install
+Executing busybox-1.28.4-r0.trigger
+OK: 13 MiB in 18 packages
+/ # bash
+bash-4.4# ls
+bin    dev    etc    home   lib    media  mnt    proc   root   run    sbin   srv    sys    tmp    usr    var
+bash-4.4# exit
+exit
+/ # exit
+[slayerm@localhost ~]$
+
+------------------------------Docker network concepts-------------------------------------------
+
+#-p -> is to specifiy port_from_host_machine:port_in_container
+
+#lets run nginx on port 80 in host and specify port in container as 80
+docker container run -p 80:80 --name webhost -d nginx
+
+#to check which port the container is communicating with host machnie
+docker container port webhost
+
+[slayerm@localhost ~]$ docker container port webhost
+80/tcp -> 0.0.0.0:80
+[slayerm@localhost ~]$
+
+# Docker by default creats a virtual bridge/docker0 network from which the container gets its IP
+so when we have two containers that has to communicate with each other, we can connet both the containers in same virtual network/docker0
+by doing this we don't have to specify port details for one of the container.
+
+Ex : if we have a apacheserver(httpd) container that has to communicate with mysql server container
+
+we specify port only for httpd container like -p 8080:80, then we don't have to specify a port in mysql container,
+but both the containers has to be in same virtual bridge/docker0 network. 
+by default httpd will communicate to the mysql container's 3302 port coz it in the same virtual bridge/docker0 network. 
+
+# to get the container bridge network IP details
+docker container inspect --format '{{.NetworkSettings.IPAddress}}' webhost
+
+-------------------------------- note ---------------------------------------------
+
+use nginx:alpine instead of nginx -> coz in the latest nginx ping command is removed.
+
+or
+
+we can apt-get or yum install ping on the lates nginx
+--------------------------------------------------------------------------------------
+ 
+# to list the virtual networks in docker
+docker network ls
+ 
+[slayerm@localhost ~]$ docker network ls
+NETWORK ID          NAME                DRIVER              SCOPE
+7685655680b8        bridge              bridge              local
+5f4b8911623d        host                host                local
+3fad16adebbc        none                null                local
+[slayerm@localhost ~]$
+
+
+# to check virtual bridge/docker0 network
+docker network inspect bridge 
+
+we get the containers IP subnet range as well as the container that are present in the network and their IPs
+
+# to create a new virtual network 
+docker network create my_network
+
+it will create a virtual network with the name my_network and by default the network driver will be bridge.
+
+[slayerm@localhost ~]$ docker network create my_network
+a5314710c5f1c90e9e785d8c3a4f9b9d6a2310be0a21a3df0ae4c8a1cf2a8e16
+[slayerm@localhost ~]$ docker network ls
+NETWORK ID          NAME                DRIVER              SCOPE
+7685655680b8        bridge              bridge              local
+5f4b8911623d        host                host                local
+a5314710c5f1        my_network          bridge              local
+3fad16adebbc        none                null                local
+[slayerm@localhost ~]$ 
+
+# to create a container with newly created network
+docker container run -p 81:80 -d --name new_nginx --network my_network nginx:alpine
+
+[slayerm@localhost ~]$ docker container run -p 81:80 -d --name new_nginx --network my_network nginx:alpine
+Unable to find image 'nginx:alpine' locally
+alpine: Pulling from library/nginx
+911c6d0c7995: Pull complete 
+131e13eca73f: Pull complete 
+95376bf29516: Pull complete 
+6717402ec973: Pull complete 
+Digest: sha256:23e4dacbc60479fa7f23b3b8e18aad41bd8445706d0538b25ba1d575a6e2410b
+Status: Downloaded newer image for nginx:alpine
+8c8749fb7cc4bb118f6e4b013e6111228c840b0ad1c8913e7a5a609b71b23bca
+[slayerm@localhost ~]$ 
+
+#To check the network if the contianer is added and what is the IP that is assigned to it.
+docker network inspect my_network
+
+# To change the virtual network of existing container.
+example lets change prevoiusly created container webhost to the newly created network my_network
+docker network connect NETWORK_ID CONTAINER_ID
+
+docker network connect a5314710c5f1 83588409560e
+
+if we check the containers network we can see two networks in the config setting one the old one and newly added network my_network
+docker container inspect webhost
+
+# to disconnet the latest network from the container
+docker network disconnect a5314710c5f1 83588409560e
+
+
+if we check the containers network we can see the second network my_network will be gone
+docker container inspect webhost
+
+
+------------------------------------- Docker Network DNS-------------------------------------------------------------------
+
+so basically containers cannot rely on the IP address given by the virtual network.
+in most of the cases the containers will not last long so relying on the IP's is going to be tough and complicated.
+so it is better to avoid using static IP's and using IP's to talk to container it is a anti-patern
+
+so the solution for this is using the DNS name of the container, it is like hostname of machine.
+
+docker daemon has a built-in DNS server that containers use by default.
+
+#so lets try creating a new container in the network my_network 
+
+so that we have already created the new network my_network which has 1 container new_nginx. 
+by default when created new network it will get a special feature the automatic DNS resolution for all the containers on it.
+
+docker container run -d --name my_new_nginx --network my_network nginx:alpine
+
+
+now it i start pinging the old container from new container it will ping the old container
+we just gonna give only the name of the both the containers
+
+[slayerm@localhost ~]$ docker container exec -it my_new_nginx ping new_nginx
+PING new_nginx (172.18.0.2): 56 data bytes
+64 bytes from 172.18.0.2: seq=0 ttl=64 time=0.085 ms
+64 bytes from 172.18.0.2: seq=1 ttl=64 time=0.327 ms
+64 bytes from 172.18.0.2: seq=2 ttl=64 time=0.205 ms
+64 bytes from 172.18.0.2: seq=3 ttl=64 time=0.208 ms
+
+----------------note -----------------------------------------------------------------------------
+
+when we want tp use the default virtual network, that is used if no network is specified while creating the container.
+
+the container will get default virtual bridge/docker0 network with dosenot have DNS resolution server
+
+so we have to use the --link parameter to create a link bewteen the container.
+
+---so it is advisable to create a new virtual network which comes with DNS feature. 
+---------------------------------------------------------------------------------------------
+
+---------------------------------------- assignment 2-----------------------------------------
+
+# get two different linux distro containers running centos:7 ubuntu:14.04
+
+docker container run -itd -d --name centos_linux --network my_network centos:7
+
+docker container run -itd -d --name ubuntu_linux --network my_network ubuntu:14.04
+
+# check the curl cli tool verion on both use -it command. install if not present else update
+docker container exec -it centos_linux bash
+
+[root@4d34ea4b5441 /]# curl --version
+curl 7.29.0 (x86_64-redhat-linux-gnu) libcurl/7.29.0 NSS/3.34 zlib/1.2.7 libidn/1.28 libssh2/1.4.3
+Protocols: dict file ftp ftps gopher http https imap imaps ldap ldaps pop3 pop3s rtsp scp sftp smtp smtps telnet tftp 
+Features: AsynchDNS GSS-Negotiate IDN IPv6 Largefile NTLM NTLM_WB SSL libz unix-sockets 
+[root@4d34ea4b5441 /]# exit
+
+# for ubuntu
+docker container exec -it ubuntu_linux bash
+
+apt-get update
+
+apt-get install curl
+
+root@fdf40f1301e3:/# curl --version
+curl 7.35.0 (x86_64-pc-linux-gnu) libcurl/7.35.0 OpenSSL/1.0.1f zlib/1.2.8 libidn/1.28 librtmp/2.3
+Protocols: dict file ftp ftps gopher http https imap imaps ldap ldaps pop3 pop3s rtmp rtsp smtp smtps telnet tftp 
+Features: AsynchDNS GSS-Negotiate IDN IPv6 Largefile NTLM NTLM_WB SSL libz TLS-SRP 
+root@fdf40f1301e3:/# exit
+
+# learn about docker save and remove option. "docker container --rm"
+
+if we do not specify --rm while starting the docker container, 
+then after we stop the container we have to manually do the cleanup by "docker container rm containerID"
+if specified after stopping the container docker will also remove the container.
+
+docker container run --rm -itd -d --name centos_linux --network my_network centos:7
+
+[slayerm@localhost ~]$ docker container run --rm -itd -d --name centos_linux --network my_network centos:7
+c6b25da8eb4560c50b490d7e5a7d9974183536feb09cf0e04339b5cfe44ada97
+[slayerm@localhost ~]$ 
+[slayerm@localhost ~]$ 
+[slayerm@localhost ~]$ docker ps
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+c6b25da8eb45        centos:7            "/bin/bash"         5 seconds ago       Up 4 seconds                            centos_linux
+[slayerm@localhost ~]$ docker ps -a
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                     PORTS               NAMES
+c6b25da8eb45        centos:7            "/bin/bash"              11 seconds ago      Up 10 seconds                                  centos_linux
+50d77131124d        alpine              "sh"                     4 hours ago         Exited (0) 4 hours ago                         vigorous_mcnulty
+487f97dbe658        alpine              "/bin/sh"                4 hours ago         Exited (0) 4 hours ago                         hardcore_shockley
+9ca54f71b402        centos              "/bin/bash"              4 hours ago         Exited (0) 4 hours ago                         centos
+5fb7553a2b01        nginx               "bash"                   4 hours ago         Exited (130) 4 hours ago                       proxy
+22a704f737dc        mysql               "docker-entrypoint.s…"   4 hours ago         Exited (0) 2 hours ago                         con_mysql
+[slayerm@localhost ~]$ docker container stop c6b
+c6b
+[slayerm@localhost ~]$ docker ps -a
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                     PORTS               NAMES
+50d77131124d        alpine              "sh"                     4 hours ago         Exited (0) 4 hours ago                         vigorous_mcnulty
+487f97dbe658        alpine              "/bin/sh"                4 hours ago         Exited (0) 4 hours ago                         hardcore_shockley
+9ca54f71b402        centos              "/bin/bash"              4 hours ago         Exited (0) 4 hours ago                         centos
+5fb7553a2b01        nginx               "bash"                   4 hours ago         Exited (130) 4 hours ago                       proxy
+22a704f737dc        mysql               "docker-entrypoint.s…"   4 hours ago         Exited (0) 2 hours ago                         con_mysql
+[slayerm@localhost ~]$
+
+------------------------------------------------------------ assignment 3-----------------------------------------------------------------------
+
+companies like google uses multiple servers tied up with same domain name google.com and server the request in Round robin in order to handle the multiple requests.
+
+in docker we are gonna do the same by running multiple containers with the same name.
+
+docker container run --rm -d --net-alias search --network my_network --name elastic_one elasticsearch:2
+
+docker container run --rm -d --net-alias search --network my_network --name elastic_two elasticsearch:2
+
+
+[slayerm@localhost ~]$ docker container run --rm -d --net-alias search --network my_network --name elastic_two elasticsearch:2
+b33c82d45719c738defb080a995f8bb68b0727333a503db6d985a84afe34cb5c
+[slayerm@localhost ~]$ docker ps
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                NAMES
+b33c82d45719        elasticsearch:2     "/docker-entrypoint.…"   8 seconds ago       Up 7 seconds        9200/tcp, 9300/tcp   elastic_two
+b2735fd9ee55        elasticsearch:2     "/docker-entrypoint.…"   30 seconds ago      Up 29 seconds       9200/tcp, 9300/tcp   elastic_one
+
+
+# alpine nslookup search in the same network
+docker container run -it --rm --network my_network alpine
+
+[slayerm@localhost ~]$ docker container run -it --rm --network my_network alpine
+/ # nslookup search
+nslookup: can't resolve '(null)': Name does not resolve
+
+Name:      search
+Address 1: 172.18.0.2 elastic_one.my_network
+Address 2: 172.18.0.3 elastic_two.my_network
+/ # 
+
+ 
+# curl on centos elastic search assigns defaults to it elastic instances
+# so if we run curl we will see two elastic search instances names for every time repeatedly when we run curl
+docker container run -it --rm --network my_network centos
+
+[slayerm@localhost ~]$ docker container run -it --rm --network my_network centos
+[root@8f2ee6dd52a1 /]# curl -s search:9200
+{
+  "name" : "Nimrod",
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "pmkdnx5OT1qbnwcov9xI4w",
+  "version" : {
+    "number" : "2.4.6",
+    "build_hash" : "5376dca9f70f3abef96a77f4bb22720ace8240fd",
+    "build_timestamp" : "2017-07-18T12:17:44Z",
+    "build_snapshot" : false,
+    "lucene_version" : "5.5.4"
+  },
+  "tagline" : "You Know, for Search"
+}
+[root@8f2ee6dd52a1 /]# curl -s search:9200
+{
+  "name" : "Frankenstein's Monster",
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "7adwwtK9Qhes5Kiwm4kMYQ",
+  "version" : {
+    "number" : "2.4.6",
+    "build_hash" : "5376dca9f70f3abef96a77f4bb22720ace8240fd",
+    "build_timestamp" : "2017-07-18T12:17:44Z",
+    "build_snapshot" : false,
+    "lucene_version" : "5.5.4"
+  },
+  "tagline" : "You Know, for Search"
+}
+[root@8f2ee6dd52a1 /]# curl -s search:9200
+{
+  "name" : "Nimrod",
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "pmkdnx5OT1qbnwcov9xI4w",
+  "version" : {
+    "number" : "2.4.6",
+    "build_hash" : "5376dca9f70f3abef96a77f4bb22720ace8240fd",
+    "build_timestamp" : "2017-07-18T12:17:44Z",
+    "build_snapshot" : false,
+    "lucene_version" : "5.5.4"
+  },
+  "tagline" : "You Know, for Search"
+}
+[root@8f2ee6dd52a1 /]#
+
+as we can see Nimrod and Frankenstein's Monster is the names
+
+
+
